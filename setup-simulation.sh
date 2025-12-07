@@ -73,7 +73,9 @@ kind create cluster --name enterprise-k8s --config kind-config.yaml
 
 # Wait for cluster to be ready
 echo "Waiting for cluster to be ready..."
-kubectl wait --for=condition=Ready nodes --all --timeout=300s 2>/dev/null || true
+if ! kubectl wait --for=condition=Ready nodes --all --timeout=300s 2>/dev/null; then
+    echo -e "${YELLOW}Warning: Some nodes may not be ready yet. Continuing...${NC}"
+fi
 
 echo ""
 echo -e "${YELLOW}Step 3: Installing Cilium CNI via Helm...${NC}"
@@ -98,7 +100,9 @@ helm install cilium cilium/cilium \
     --set ipam.mode=kubernetes
 
 echo "Waiting for Cilium to be ready..."
-kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s 2>/dev/null || true
+if ! kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s 2>/dev/null; then
+    echo -e "${YELLOW}Warning: Some pods may not be ready yet. Continuing...${NC}"
+fi
 
 # Give Cilium more time to stabilize
 sleep 10
@@ -120,7 +124,7 @@ volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: Retain
 EOF
 
-# Create longhorn StorageClass (using local-path provisioner)
+# Create longhorn StorageClass (mock - no provisioner)
 echo "Creating longhorn StorageClass..."
 kubectl apply -f - <<EOF
 apiVersion: storage.k8s.io/v1
@@ -129,7 +133,7 @@ metadata:
   name: longhorn
   annotations:
     storageclass.kubernetes.io/is-default-class: "false"
-provisioner: rancher.io/local-path
+provisioner: kubernetes.io/no-provisioner
 volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: Delete
 EOF
