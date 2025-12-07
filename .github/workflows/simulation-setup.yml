@@ -94,8 +94,7 @@ jobs:
           # Verify all nodes are Ready
           echo ""
           echo "Checking node readiness..."
-          NOT_READY=$(kubectl get nodes --no-headers | grep -v "Ready" | wc -l)
-          if [ "$NOT_READY" -ne 0 ]; then
+          if ! kubectl wait --for=condition=Ready nodes --all --timeout=60s; then
             echo "ERROR: Some nodes are not Ready"
             kubectl get nodes
             exit 1
@@ -129,12 +128,12 @@ jobs:
           echo "✓ Cilium pods are running"
           
           # Check if Cilium pods are Ready
-          CILIUM_NOT_READY=$(kubectl get pods -n kube-system -l k8s-app=cilium --no-headers | grep -vc "Running" || true)
-          if [ "$CILIUM_NOT_READY" -ne 0 ]; then
-            echo "WARNING: Some Cilium pods are not Running"
+          echo "Checking Cilium pod readiness..."
+          if ! kubectl wait --for=condition=Ready pods -n kube-system -l k8s-app=cilium --timeout=60s 2>/dev/null; then
+            echo "WARNING: Some Cilium pods are not Ready"
             kubectl get pods -n kube-system -l k8s-app=cilium
           else
-            echo "✓ All Cilium pods are Running"
+            echo "✓ All Cilium pods are Ready"
           fi
           
           echo ""

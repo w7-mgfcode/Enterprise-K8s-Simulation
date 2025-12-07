@@ -83,7 +83,7 @@ The cluster configuration is defined in `kind-config.yaml`:
 
 Two mock StorageClasses are created:
 - **powerscale-nfs-prod**: No provisioner, WaitForFirstConsumer binding, Retain reclaim policy
-- **longhorn**: Local-path provisioner, WaitForFirstConsumer binding, Delete reclaim policy
+- **longhorn**: No provisioner (mock), WaitForFirstConsumer binding, Delete reclaim policy
 
 ### Cilium CNI
 

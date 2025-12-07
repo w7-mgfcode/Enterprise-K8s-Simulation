@@ -73,7 +73,7 @@ kind create cluster --name enterprise-k8s --config kind-config.yaml
 
 # Wait for cluster to be ready
 echo "Waiting for cluster to be ready..."
-if ! kubectl wait --for=condition=Ready nodes --all --timeout=300s 2>/dev/null; then
+if ! kubectl wait --for=condition=Ready nodes --all --timeout=300s 2>&1; then
     echo -e "${YELLOW}Warning: Some nodes may not be ready yet. Continuing...${NC}"
 fi
 
@@ -100,7 +100,7 @@ helm install cilium cilium/cilium \
     --set ipam.mode=kubernetes
 
 echo "Waiting for Cilium to be ready..."
-if ! kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s 2>/dev/null; then
+if ! kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s 2>&1; then
     echo -e "${YELLOW}Warning: Some pods may not be ready yet. Continuing...${NC}"
 fi
 
