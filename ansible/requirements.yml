@@ -1,0 +1,12 @@
+# Ansible Galaxy Requirements
+# Collections and roles required for this project
+
+collections:
+  - name: kubernetes.core
+    version: ">=2.4.0"
+  - name: community.general
+    version: ">=7.0.0"
+
+# roles:
+#   - name: example.role
+#     version: "1.0.0"

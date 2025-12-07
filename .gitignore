@@ -1,0 +1,26 @@
+# Temporary files
+*.tmp
+*.log
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Kind artifacts
+.kube/
+kubeconfig
+
+# Ansible
+*.retry
+.ansible/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Build artifacts
+build/
+dist/
+*.tar.gz
+*.zip
