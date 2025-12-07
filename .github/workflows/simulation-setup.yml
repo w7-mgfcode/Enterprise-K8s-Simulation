@@ -1,0 +1,161 @@
+name: Enterprise K8s Simulation Setup
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  setup-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          df -h
+      
+      - name: Install Docker
+        run: |
+          # Docker should already be installed on GitHub runners
+          docker --version
+      
+      - name: Run setup script
+        run: |
+          chmod +x ./setup-simulation.sh
+          ./setup-simulation.sh
+      
+      - name: Smoke test - Verify nodes
+        run: |
+          echo "======================================"
+          echo "Smoke Test: Verifying Cluster Setup"
+          echo "======================================"
+          
+          # Check if kubectl is working
+          echo "Testing kubectl connectivity..."
+          kubectl version --short || kubectl version
+          
+          # Verify we have 4 nodes total (1 control-plane + 3 workers)
+          echo ""
+          echo "Checking node count..."
+          NODE_COUNT=$(kubectl get nodes --no-headers | wc -l)
+          echo "Total nodes: $NODE_COUNT"
+          if [ "$NODE_COUNT" -ne 4 ]; then
+            echo "ERROR: Expected 4 nodes, found $NODE_COUNT"
+            exit 1
+          fi
+          echo "✓ Node count check passed"
+          
+          # Verify control-plane node
+          echo ""
+          echo "Checking control-plane node..."
+          CONTROL_PLANE_COUNT=$(kubectl get nodes --no-headers | grep control-plane | wc -l)
+          echo "Control-plane nodes: $CONTROL_PLANE_COUNT"
+          if [ "$CONTROL_PLANE_COUNT" -ne 1 ]; then
+            echo "ERROR: Expected 1 control-plane node, found $CONTROL_PLANE_COUNT"
+            exit 1
+          fi
+          echo "✓ Control-plane check passed"
+          
+          # Verify worker nodes
+          echo ""
+          echo "Checking worker nodes..."
+          WORKER_COUNT=$(kubectl get nodes --no-headers | grep -v control-plane | wc -l)
+          echo "Worker nodes: $WORKER_COUNT"
+          if [ "$WORKER_COUNT" -ne 3 ]; then
+            echo "ERROR: Expected 3 worker nodes, found $WORKER_COUNT"
+            exit 1
+          fi
+          echo "✓ Worker count check passed"
+          
+          # Verify worker labels
+          echo ""
+          echo "Checking worker node labels..."
+          LABELED_WORKERS=$(kubectl get nodes -l topology.kubernetes.io/zone=dc10-kozma --no-headers | wc -l)
+          echo "Workers with dc10-kozma label: $LABELED_WORKERS"
+          if [ "$LABELED_WORKERS" -ne 3 ]; then
+            echo "ERROR: Expected 3 workers with dc10-kozma label, found $LABELED_WORKERS"
+            exit 1
+          fi
+          echo "✓ Worker label check passed"
+          
+          # Verify all nodes are Ready
+          echo ""
+          echo "Checking node readiness..."
+          NOT_READY=$(kubectl get nodes --no-headers | grep -v " Ready " | wc -l)
+          if [ "$NOT_READY" -ne 0 ]; then
+            echo "ERROR: Some nodes are not Ready"
+            kubectl get nodes
+            exit 1
+          fi
+          echo "✓ All nodes are Ready"
+          
+          # Verify StorageClasses
+          echo ""
+          echo "Checking StorageClasses..."
+          if ! kubectl get storageclass powerscale-nfs-prod &> /dev/null; then
+            echo "ERROR: StorageClass powerscale-nfs-prod not found"
+            exit 1
+          fi
+          echo "✓ powerscale-nfs-prod StorageClass exists"
+          
+          if ! kubectl get storageclass longhorn &> /dev/null; then
+            echo "ERROR: StorageClass longhorn not found"
+            exit 1
+          fi
+          echo "✓ longhorn StorageClass exists"
+          
+          # Verify Cilium is running
+          echo ""
+          echo "Checking Cilium pods..."
+          CILIUM_PODS=$(kubectl get pods -n kube-system -l k8s-app=cilium --no-headers | wc -l)
+          echo "Cilium pods running: $CILIUM_PODS"
+          if [ "$CILIUM_PODS" -eq 0 ]; then
+            echo "ERROR: No Cilium pods found"
+            exit 1
+          fi
+          echo "✓ Cilium pods are running"
+          
+          # Check if Cilium pods are Ready
+          CILIUM_NOT_READY=$(kubectl get pods -n kube-system -l k8s-app=cilium --no-headers | grep -v "Running" | wc -l)
+          if [ "$CILIUM_NOT_READY" -ne 0 ]; then
+            echo "WARNING: Some Cilium pods are not Running"
+            kubectl get pods -n kube-system -l k8s-app=cilium
+          else
+            echo "✓ All Cilium pods are Running"
+          fi
+          
+          echo ""
+          echo "======================================"
+          echo "✓ All Smoke Tests Passed!"
+          echo "======================================"
+      
+      - name: Display cluster summary
+        if: always()
+        run: |
+          echo ""
+          echo "======================================"
+          echo "Cluster Summary"
+          echo "======================================"
+          kubectl get nodes -o wide || true
+          echo ""
+          kubectl get pods -A || true
+          echo ""
+          kubectl get storageclass || true
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          kind delete cluster --name enterprise-k8s || true

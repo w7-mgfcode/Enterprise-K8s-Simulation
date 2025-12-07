@@ -1,0 +1,15 @@
+# Ansible Inventory File
+# This is a placeholder inventory file
+
+[all:vars]
+ansible_connection=local
+
+[k8s_masters]
+# Add your Kubernetes master nodes here
+
+[k8s_workers]
+# Add your Kubernetes worker nodes here
+
+[k8s_cluster:children]
+k8s_masters
+k8s_workers
